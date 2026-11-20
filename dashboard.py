@@ -108,15 +108,10 @@ kpis = [
     ("YoY growth", "14.8%", "Illustrative assumption"),
     ("MoM growth", f"{mom_growth:+.1f}%", "Latest month vs prior month"),
 ]
-for row in range(5):
+for row in range(3):
     cols = st.columns(5)
-    for col, (label, value, help_text) in zip(cols, kpis[row * 3:row * 3 + 3]):
-        # Three KPIs per row keeps the scorecard readable on typical screens.
+    for col, (label, value, help_text) in zip(cols, kpis[row * 5:row * 5 + 5]):
         col.metric(label, value, help_text)
-# Render remaining KPI cards in a compact row.
-cols = st.columns(5)
-for col, (label, value, help_text) in zip(cols, kpis[15:]):
-    col.metric(label, value, help_text)
 
 st.divider()
 st.subheader("Revenue & growth performance")
