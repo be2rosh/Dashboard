@@ -93,7 +93,7 @@ def load_data() -> pd.DataFrame:
     frame = pd.concat(frames, ignore_index=True)
     missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
     if missing:
-        raise ValueError(f"database.csv is missing required columns: {', '.join(missing)}")
+        raise ValueError(f"Sanitized SourceName data is missing required columns: {', '.join(missing)}")
     frame["Mothly"] = pd.to_datetime(frame["Mothly"], errors="coerce")
     frame = frame.dropna(subset=["Mothly"]).copy()
     if frame.empty:
