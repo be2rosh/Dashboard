@@ -75,23 +75,30 @@ month_labels = {pd.Timestamp(month): pd.Timestamp(month).strftime("%b %Y") for m
 st.title("🌿 Mamaearth")
 st.caption("TERTIARY SALES & INVENTORY INTELLIGENCE  |  Executive dashboard")
 
-with st.sidebar:
-    st.header("Dashboard filters")
+# Filters are placed in a single horizontal row at the top of the dashboard.
+st.subheader("Dashboard filters")
+filter_period, filter_zone, filter_client = st.columns([1.25, 1, 1])
+
+with filter_period:
     period_label = st.selectbox(
-        "Reporting period",
+        "1. Reporting period",
         ["All available months", "Last 6 months", "Last 3 months"],
         index=0,
     )
+
+with filter_zone:
     zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
-    selected_zone = st.selectbox("Zone", zone_options)
+    selected_zone = st.selectbox("2. Zone", zone_options)
+
+with filter_client:
     client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
-    selected_client = st.selectbox("Client type", client_options)
-    st.divider()
-    st.caption(
-        f"Source: repository database.csv\n\n"
-        f"Coverage: {pd.Timestamp(months_available[0]).strftime('%b %Y')} – "
-        f"{pd.Timestamp(months_available[-1]).strftime('%b %Y')}"
-    )
+    selected_client = st.selectbox("3. Client type", client_options)
+
+st.caption(
+    f"Source: repository database.csv  ·  Coverage: "
+    f"{pd.Timestamp(months_available[0]).strftime('%b %Y')} – "
+    f"{pd.Timestamp(months_available[-1]).strftime('%b %Y')}"
+)
 
 period_count = {
     "All available months": len(months_available),
