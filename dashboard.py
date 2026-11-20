@@ -395,8 +395,8 @@ with st.expander("Data notes & interpretation"):
         - The latest month has fewer source records than the preceding month and may be a partial reporting month; interpret its month-on-month comparison cautiously.
         - Opening and closing values are shown as supplied. Negative balances are present in the source and have not been silently adjusted.
         - The source extract does not provide product-level, channel-level, customer acquisition, conversion, profit, or margin measures. Those metrics are intentionally not fabricated.
-        - Refresh the repository data by replacing database.csv with a newly aggregated extract that retains the same column names.
+        - Refresh the repository data by regenerating the sanitized aggregate, then gzip-compressing and Base64-encoding it as database.csv.gz.b64.
         """
     )
 
-st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: database.csv")
+st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: sanitized repository extract")
