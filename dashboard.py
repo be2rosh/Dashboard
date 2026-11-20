@@ -15,7 +15,7 @@ st.set_page_config(
 
 DATA_FILE = Path(__file__).with_name("database.csv")
 REQUIRED_COLUMNS = [
-    "Mothly", "Zone", "Client Type", "Records", "NetTertiary",
+    "Mothly", "Zone", "State", "Client Type", "Records", "NetTertiary",
     "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue",
     "ReturnsValue",
 ]
@@ -80,10 +80,16 @@ def load_data() -> pd.DataFrame:
         raise FileNotFoundError(
             "database.csv is missing. Keep database.csv in the same folder as dashboard.py."
         )
-    frame = pd.read_csv(DATA_FILE, parse_dates=["Mothly"])
+    frame = pd.read_csv(DATA_FILE)
     missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
     if missing:
         raise ValueError(f"database.csv is missing required columns: {', '.join(missing)}")
+    frame["Mothly"] = pd.to_datetime(frame["Mothly"], errors="coerce")
+    frame = frame.dropna(subset=["Mothly"]).copy()
+    if frame.empty:
+        raise ValueError("database.csv has no valid reporting dates in Mothly.")
+    for column in ["Zone", "State", "Client Type"]:
+        frame[column] = frame[column].fillna("Unknown").astype(str).str.strip().replace("", "Unknown")
     frame = frame.rename(columns={"Mothly": "Month", "Client Type": "ClientType"})
     numeric = [
         "Records", "NetTertiary", "SalesQty", "SecondaryValue",
@@ -139,8 +145,14 @@ with st.container(border=True):
             ["All available months", "Last 6 months", "Last 3 months"],
             index=0,
         )
+    period_count = {
+        "All available months": len(months_available),
+        "Last 6 months": min(6, len(months_available)),
+        "Last 3 months": min(3, len(months_available)),
+    }[period_label]
+    period_months = months_available[-period_count:]
     with filter_month:
-        month_options = ["All months"] + [month_labels[pd.Timestamp(month)] for month in months_available]
+        month_options = ["All months"] + [month_labels[pd.Timestamp(month)] for month in period_months]
         selected_month = st.selectbox("2. Month", month_options)
     with filter_zone:
         zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
@@ -158,16 +170,11 @@ st.caption(
     f"{pd.Timestamp(months_available[-1]).strftime('%b %Y')}"
 )
 
-period_count = {
-    "All available months": len(months_available),
-    "Last 6 months": 6,
-    "Last 3 months": 3,
-}[period_label]
-selected_months = months_available[-period_count:]
-filtered = data[data["Month"].isin(selected_months)].copy()
+filtered = data[data["Month"].isin(period_months)].copy()
 if selected_month != "All months":
-    selected_month_date = pd.Timestamp(
-        next(month for month in months_available if month_labels[pd.Timestamp(month)] == selected_month)
+    selected_month_date = next(
+        pd.Timestamp(month) for month in period_months
+        if month_labels[pd.Timestamp(month)] == selected_month
     )
     filtered = filtered[filtered["Month"] == selected_month_date]
 if selected_zone != "All zones":
@@ -211,8 +218,8 @@ if len(monthly) >= 2:
 
 st.markdown("## Executive KPI scorecard")
 st.caption(
-    f"{period_label}  ·  {selected_zone}  ·  {selected_client}  ·  "
-    f"{len(monthly)} month(s) represented"
+    f"{period_label}  ·  {selected_month}  ·  {selected_zone}  ·  "
+    f"{selected_state}  ·  {selected_client}  ·  {len(monthly)} month(s) represented"
 )
 
 kpi_cols = st.columns(5)
@@ -338,9 +345,9 @@ with c3:
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.markdown("## Zone and client-type performance")
+st.markdown("## Zone, state and client-type performance")
 summary = (
-    filtered.groupby(["Zone", "ClientType"], as_index=False)
+    filtered.groupby(["Zone", "State", "ClientType"], as_index=False)
     .agg(
         ClientMonthRecords=("Records", "sum"),
         NetTertiary=("NetTertiary", "sum"),
@@ -354,6 +361,7 @@ summary = (
 display = summary.rename(
     columns={
         "Zone": "Zone",
+        "State": "State",
         "ClientType": "Client type",
         "ClientMonthRecords": "Client-month records",
         "NetTertiary": "Net tertiary sales (₹)",
@@ -375,8 +383,8 @@ st.download_button(
 with st.expander("Data notes & interpretation"):
     st.markdown(
         """
-        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, and client type.
-        - It contains 105 aggregate rows representing 13,663 source client-month records across April–October 2026.
+        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, state, and client type.
+        - It contains 436 aggregate rows representing 13,663 source client-month records across April–October 2026.
         - The latest month has fewer source records than the preceding month and may be a partial reporting month; interpret its month-on-month comparison cautiously.
         - Opening and closing values are shown as supplied. Negative balances are present in the source and have not been silently adjusted.
         - The source extract does not provide product-level, channel-level, customer acquisition, conversion, profit, or margin measures. Those metrics are intentionally not fabricated.
