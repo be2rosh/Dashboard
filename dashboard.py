@@ -19,18 +19,18 @@ REQUIRED_COLUMNS = [
     "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue",
     "ReturnsValue",
 ]
-PALETTE = ["#236B5A", "#5AAE91", "#D9A441", "#7C83C8", "#D87979", "#75A7C9"]
+PALETTE = ["#477B61", "#8EAE91", "#C6A96B", "#789B8A", "#B97970", "#91AFA8"]
 
 st.markdown(
     """
     <style>
       :root {
-        --page-bg: #f4f6fa; --panel: #ffffff; --ink: #182230;
-        --muted: #778397; --line: #e8edf3; --navy: #14243a;
-        --blue: #4776e6; --teal: #20b8a6; --green: #159b72;
-        --shadow: 0 8px 28px rgba(22,38,58,.06);
+        --page-bg: #f1f6f1; --panel: #ffffff; --ink: #18352b;
+        --muted: #62776c; --line: #dce9df; --navy: #244b3b;
+        --blue: #477b61; --teal: #8eae91; --green: #397653;
+        --shadow: 0 8px 28px rgba(36,75,59,.07);
       }
-      .stApp {background: var(--page-bg); color: var(--ink);}
+      .stApp {background: radial-gradient(ellipse at 8% 0%, rgba(151,190,151,.16), transparent 38%), var(--page-bg); color: var(--ink);}
       .block-container {max-width: 1700px; padding: 1.6rem 2rem 2.5rem;}
       h1, h2, h3 {color: var(--ink); letter-spacing: -.45px;}
       h1 {font-size: 1.75rem !important; font-weight: 760 !important;}
@@ -39,7 +39,7 @@ st.markdown(
       div[data-testid="stCaptionContainer"], .stMarkdown small {color: var(--muted);}
       [data-testid="stMetric"] {
         background: var(--panel); border: 1px solid var(--line);
-        border-radius: 13px; padding: 15px 16px; min-height: 112px;
+        border-radius: 13px; padding: 15px 16px; min-height: 112px; border-top: 3px solid #a9c9ad;
         box-shadow: var(--shadow); gap: 7px;
       }
       [data-testid="stMetricLabel"] {color: var(--muted); font-size: .72rem; font-weight: 650;}
@@ -50,7 +50,7 @@ st.markdown(
         background: var(--panel);
       }
       div[data-testid="stSelectbox"] label {
-        color: var(--muted); font-size: .68rem; font-weight: 750;
+        color: #526c5d; font-size: .68rem; font-weight: 750;
         letter-spacing: .045em; text-transform: uppercase;
       }
       div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
@@ -60,7 +60,7 @@ st.markdown(
         border-radius: 9px; border: 1px solid var(--line); font-weight: 650;
       }
       div[data-testid="stDownloadButton"] button {
-        background: var(--navy); color: #fff; border-color: var(--navy);
+        background: #315f49; color: #fff; border-color: #315f49;
       }
       [data-testid="stPlotlyChart"] {background: transparent;}
       hr {border-color: var(--line);}
