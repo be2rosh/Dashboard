@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import gzip
+import io
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-DATA_FILE = Path(__file__).with_name("database.csv")
+DATA_FILE = Path(__file__).with_name("database.csv.gz.b64")
 REQUIRED_COLUMNS = [
     "Mothly", "Zone", "State", "Client Type", "Records", "NetTertiary",
     "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue",
@@ -78,9 +81,14 @@ st.markdown(
 def load_data() -> pd.DataFrame:
     if not DATA_FILE.exists():
         raise FileNotFoundError(
-            "database.csv is missing. Keep database.csv in the same folder as dashboard.py."
+            "database.csv.gz.b64 is missing. Keep it in the same folder as dashboard.py."
         )
-    frame = pd.read_csv(DATA_FILE)
+    try:
+        compressed_bytes = base64.b64decode(DATA_FILE.read_text(encoding="ascii"), validate=True)
+        csv_bytes = gzip.decompress(compressed_bytes)
+    except (ValueError, OSError, gzip.BadGzipFile) as exc:
+        raise ValueError("The dashboard data file is corrupted or is not valid gzip/base64 data.") from exc
+    frame = pd.read_csv(io.BytesIO(csv_bytes))
     missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
     if missing:
         raise ValueError(f"database.csv is missing required columns: {', '.join(missing)}")
