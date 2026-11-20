@@ -202,7 +202,7 @@ with st.container(border=True):
         '<div style="font-size:10px;letter-spacing:1.2px;color:#778397;font-weight:800;margin-bottom:8px;">DASHBOARD FILTERS</div>',
         unsafe_allow_html=True,
     )
-    filter_period, filter_month, filter_zone, filter_state, filter_client, filter_source_type, filter_source = st.columns([12, 8, 7, 8, 9, 9, 14])
+    filter_period, filter_month, filter_zone, filter_state, filter_client, filter_source_type, filter_source = st.columns(7, gap="small")
     with filter_period:
         period_label = st.selectbox(
             "1. Reporting period",
