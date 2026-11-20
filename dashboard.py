@@ -108,6 +108,60 @@ def load_data() -> pd.DataFrame:
     for column in numeric:
         frame[column] = pd.to_numeric(frame[column], errors="coerce").fillna(0)
     frame["MonthLabel"] = frame["Month"].dt.strftime("%b %Y")
+
+    # SourceType is mostly one-to-one with SourceName in the workbook.
+    # Mamaearth Pvt Ltd also has 21 D-Mart records; split those exact rows
+    # from its Company aggregate so filtering remains fully reconciled.
+    frame["SourceType"] = "Distributor"
+    frame.loc[frame["SourceName"] == "Unknown", "SourceType"] = "Unknown"
+    frame.loc[frame["SourceName"].isin(["Honasa Pvt. Ltd.", "Mamaearth Pvt Ltd"]), "SourceType"] = "Company"
+
+    dmart_rows = [
+        ("2026-04-01", "SOUTH-2", "TELANGANA", 92715, 224, -807, -93522),
+        ("2026-04-01", "WEST", "GUJARAT", 46309, 114, 0, -46309),
+        ("2026-04-01", "WEST", "MADHYA PRADESH", 67033, 160, 0, -67033),
+        ("2026-05-01", "SOUTH-2", "TELANGANA", 326004, 847, -93522, -419528),
+        ("2026-05-01", "WEST", "GUJARAT", 462163, 1155, -46309, -508473),
+        ("2026-05-01", "WEST", "MADHYA PRADESH", 337737, 835, -67033, -404770),
+        ("2026-06-01", "SOUTH-2", "TELANGANA", 393052, 1039, -419528, -812578),
+        ("2026-06-01", "WEST", "GUJARAT", 629930, 1600, -508473, -1138404),
+        ("2026-06-01", "WEST", "MADHYA PRADESH", 468734, 1176, -404770, -873504),
+        ("2026-07-01", "SOUTH-2", "TELANGANA", 366389, 935, -812578, -1178967),
+        ("2026-07-01", "WEST", "GUJARAT", 428990, 1083, -1138404, -1567393),
+        ("2026-07-01", "WEST", "MADHYA PRADESH", 649617, 1584, -873504, -1523119),
+        ("2026-08-01", "SOUTH-2", "TELANGANA", 306171, 760, -1178967, -1485137),
+        ("2026-08-01", "WEST", "GUJARAT", 673870, 1723, -1567393, -2241261),
+        ("2026-08-01", "WEST", "MADHYA PRADESH", 453283, 1052, -1523119, -1976402),
+        ("2026-09-01", "SOUTH-2", "TELANGANA", 380004, 938, -1485137, -1865144),
+        ("2026-09-01", "WEST", "GUJARAT", 443362, 1141, -2241261, -2684623),
+        ("2026-09-01", "WEST", "MADHYA PRADESH", 275993, 649, -1976402, -2252395),
+        ("2026-10-01", "SOUTH-2", "TELANGANA", 409710, 994, -1865144, -2274855),
+        ("2026-10-01", "WEST", "GUJARAT", 670586, 1723, -2684623, -3355211),
+        ("2026-10-01", "WEST", "MADHYA PRADESH", 413047, 980, -2252395, -2665441),
+    ]
+    metric_columns = ["Records", "NetTertiary", "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue", "ReturnsValue"]
+    additions = []
+    for month, zone, state, net, qty, opening, closing in dmart_rows:
+        mask = (
+            (frame["Month"] == pd.Timestamp(month))
+            & (frame["Zone"] == zone)
+            & (frame["State"] == state)
+            & (frame["ClientType"] == "D-Mart")
+            & (frame["SourceName"] == "Mamaearth Pvt Ltd")
+        )
+        matched = frame.index[mask]
+        if len(matched) != 1:
+            raise ValueError(f"Unable to reconcile SourceType split for {month}, {state}.")
+        frame.loc[matched, metric_columns] = frame.loc[matched, metric_columns].to_numpy() - [1, net, qty, 0, opening, closing, 0]
+        additions.append({
+            "Month": pd.Timestamp(month), "Zone": zone, "State": state,
+            "ClientType": "D-Mart", "SourceName": "Mamaearth Pvt Ltd",
+            "SourceType": "D-Mart", "Records": 1, "NetTertiary": net,
+            "SalesQty": qty, "SecondaryValue": 0, "OpeningValue": opening,
+            "ClosingValue": closing, "ReturnsValue": 0,
+            "MonthLabel": pd.Timestamp(month).strftime("%b %Y"),
+        })
+    frame = pd.concat([frame, pd.DataFrame(additions)], ignore_index=True)
     return frame
 
 
@@ -148,7 +202,7 @@ with st.container(border=True):
         '<div style="font-size:10px;letter-spacing:1.2px;color:#778397;font-weight:800;margin-bottom:8px;">DASHBOARD FILTERS</div>',
         unsafe_allow_html=True,
     )
-    filter_period, filter_month, filter_zone, filter_state, filter_client, filter_source = st.columns([14, 10, 8, 10, 11, 18])
+    filter_period, filter_month, filter_zone, filter_state, filter_client, filter_source_type, filter_source = st.columns([12, 8, 7, 8, 9, 9, 14])
     with filter_period:
         period_label = st.selectbox(
             "1. Reporting period",
@@ -173,9 +227,12 @@ with st.container(border=True):
     with filter_client:
         client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
         selected_client = st.selectbox("5. Client type", client_options)
+    with filter_source_type:
+        source_type_options = ["All source types"] + sorted(data["SourceType"].dropna().astype(str).unique().tolist())
+        selected_source_type = st.selectbox("6. SourceType", source_type_options)
     with filter_source:
         source_options = ["All sources"] + sorted(data["SourceName"].dropna().astype(str).unique().tolist())
-        selected_source = st.selectbox("6. SourceName", source_options)
+        selected_source = st.selectbox("7. SourceName", source_options)
 
 st.caption(
     f"Source: sanitized repository data  ·  Coverage: "
@@ -196,6 +253,8 @@ if selected_state != "All states":
     filtered = filtered[filtered["State"].astype(str) == selected_state]
 if selected_client != "All client types":
     filtered = filtered[filtered["ClientType"] == selected_client]
+if selected_source_type != "All source types":
+    filtered = filtered[filtered["SourceType"] == selected_source_type]
 if selected_source != "All sources":
     filtered = filtered[filtered["SourceName"] == selected_source]
 
@@ -234,7 +293,7 @@ if len(monthly) >= 2:
 st.markdown("## Executive KPI scorecard")
 st.caption(
     f"{period_label}  ·  {selected_month}  ·  {selected_zone}  ·  "
-    f"{selected_state}  ·  {selected_client}  ·  {selected_source}  ·  {len(monthly)} month(s) represented"
+    f"{selected_state}  ·  {selected_client}  ·  {selected_source_type}  ·  {selected_source}  ·  {len(monthly)} month(s) represented"
 )
 
 kpi_cols = st.columns(5)
@@ -360,9 +419,9 @@ with c3:
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.markdown("## Zone, state, client-type and SourceName performance")
+st.markdown("## Zone, state, client-type, SourceType and SourceName performance")
 summary = (
-    filtered.groupby(["Zone", "State", "ClientType", "SourceName"], as_index=False)
+    filtered.groupby(["Zone", "State", "ClientType", "SourceType", "SourceName"], as_index=False)
     .agg(
         ClientMonthRecords=("Records", "sum"),
         NetTertiary=("NetTertiary", "sum"),
@@ -399,8 +458,8 @@ st.download_button(
 with st.expander("Data notes & interpretation"):
     st.markdown(
         """
-        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, state, client type, and SourceName.
-        - It contains 2,219 aggregate rows representing 13,663 source client-month records across April–October 2026, with 256 named sources plus an Unknown bucket.
+        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, state, client type, and SourceName; SourceType is reconciled from the workbook's source classification.
+        - It represents 13,663 source client-month records across April–October 2026, with 256 named sources plus an Unknown bucket.
         - The latest month has fewer source records than the preceding month and may be a partial reporting month; interpret its month-on-month comparison cautiously.
         - Opening and closing values are shown as supplied. Negative balances are present in the source and have not been silently adjusted.
         - The source extract does not provide product-level, channel-level, customer acquisition, conversion, profit, or margin measures. Those metrics are intentionally not fabricated.
@@ -408,4 +467,4 @@ with st.expander("Data notes & interpretation"):
         """
     )
 
-st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: sanitized SourceName aggregate")
+st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: sanitized SourceName aggregate with reconciled SourceType")
