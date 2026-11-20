@@ -77,7 +77,7 @@ st.caption("TERTIARY SALES & INVENTORY INTELLIGENCE  |  Executive dashboard")
 
 # Filters are placed in a single horizontal row at the top of the dashboard.
 st.subheader("Dashboard filters")
-filter_period, filter_zone, filter_client = st.columns([1.25, 1, 1])
+filter_period, filter_zone, filter_client = st.columns([20, 9, 15])
 
 with filter_period:
     period_label = st.selectbox(
