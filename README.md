@@ -7,10 +7,10 @@ A Streamlit + Plotly executive dashboard using the sanitized, compressed busines
 - Net tertiary sales and sales-quantity KPIs
 - Client-month record counts, secondary value, and returns value
 - Month-wise tertiary sales trend
-- Zone-wise and client-type sales mix
+- Zone-wise, state-wise, and client-type sales mix
 - Secondary value comparison
 - Opening and closing value trends
-- Zone/client-type performance table
+- Zone/state/client-type performance table
 - Filters for reporting period, month, zone, state, and client type
 - Filtered CSV export
 
@@ -33,7 +33,7 @@ Streamlit will print a local URL (typically http://localhost:8501) to open in yo
 - `database.csv.gz.b64` is the dashboard's data source and must remain in the same folder as `dashboard.py`. The file contains a gzip-compressed CSV encoded as Base64; the app decodes it automatically at startup.
 - The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, state, and client type. It contains 436 rows representing 13,663 source client-month records across April–October 2026.
 - Direct contact fields, staff names, phone numbers, and internal identifiers from the uploaded workbook are not included in the repository extract.
-- To refresh the dashboard, replace `database.csv` with a newly aggregated CSV that preserves these column names:
+- To refresh the dashboard data, regenerate the sanitized aggregate with these columns, then gzip-compress the CSV and Base64-encode the compressed bytes into `database.csv.gz.b64`:
 
   `Mothly, Zone, State, Client Type, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
 
