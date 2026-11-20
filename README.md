@@ -1,6 +1,6 @@
 # Mamaearth Tertiary Sales & Inventory Dashboard
 
-A Streamlit + Plotly executive dashboard using the sanitized, compressed business data extract in `database.csv.gz.b64`.
+A Streamlit + Plotly executive dashboard using the sanitized, compressed business data extract in `database_source_part*.csv.gz.b64`.
 
 ## Dashboard features
 
@@ -10,8 +10,8 @@ A Streamlit + Plotly executive dashboard using the sanitized, compressed busines
 - Zone-wise, state-wise, and client-type sales mix
 - Secondary value comparison
 - Opening and closing value trends
-- Zone/state/client-type performance table
-- Filters for reporting period, month, zone, state, and client type
+- Zone/state/client-type/SourceName performance table
+- Filters for reporting period, month, zone, state, client type, and SourceName
 - Filtered CSV export
 
 ## Run locally
@@ -31,11 +31,11 @@ Streamlit will print a local URL (typically http://localhost:8501) to open in yo
 ## Database
 
 - `database.csv.gz.b64` is the dashboard's data source and must remain in the same folder as `dashboard.py`. The file contains a gzip-compressed CSV encoded as Base64; the app decodes it automatically at startup.
-- The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, state, and client type. It contains 436 rows representing 13,663 source client-month records across April–October 2026.
+- The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, state, client type, and SourceName. It contains 2,219 rows representing 13,663 source client-month records across April–October 2026, covering 256 named sources plus an Unknown bucket.
 - Direct contact fields, staff names, phone numbers, and internal identifiers from the uploaded workbook are not included in the repository extract.
 - To refresh the dashboard data, regenerate the sanitized aggregate with these columns, then gzip-compress the CSV and Base64-encode the compressed bytes into `database.csv.gz.b64`:
 
-  `Mothly, Zone, State, Client Type, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
+  `Mothly, Zone, State, Client Type, SourceName, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
 
 ## Data interpretation
 
