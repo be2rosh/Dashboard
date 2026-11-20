@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(
@@ -173,7 +172,7 @@ with st.container(border=True):
         selected_client = st.selectbox("5. Client type", client_options)
 
 st.caption(
-    f"Source: repository database.csv  ·  Coverage: "
+    f"Source: sanitized repository data  ·  Coverage: "
     f"{pd.Timestamp(months_available[0]).strftime('%b %Y')} – "
     f"{pd.Timestamp(months_available[-1]).strftime('%b %Y')}"
 )
