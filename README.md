@@ -1,15 +1,17 @@
-# Mamaearth Business Intelligence Dashboard
+# Mamaearth Tertiary Sales & Inventory Dashboard
 
-A Streamlit-based Python version of the Mamaearth executive BI dashboard.
+A Streamlit + Plotly executive dashboard using the sanitized business data extract in `database.csv`.
 
-## Features
+## Dashboard features
 
-- Executive KPI scorecard
-- Revenue and growth trends
-- Category, regional, product, and channel analytics
-- Customer segmentation and acquisition views
-- Target attainment and sales funnel
-- Interactive filters for date range, region, category, and channel
+- Net tertiary sales and sales-quantity KPIs
+- Client-month record counts, secondary value, and returns value
+- Month-wise tertiary sales trend
+- Zone-wise and client-type sales mix
+- Secondary value comparison
+- Opening and closing value trends
+- Zone/client-type performance table
+- Filters for reporting period, zone, and client type
 - Filtered CSV export
 
 ## Run locally
@@ -26,6 +28,19 @@ A Streamlit-based Python version of the Mamaearth executive BI dashboard.
 
 Streamlit will print a local URL (typically http://localhost:8501) to open in your browser.
 
-## Data note
+## Database
 
-The included figures are synthetic demonstration data. Replace the `DATA` dictionary and illustrative KPI assumptions in `dashboard.py` with verified Mamaearth data before using the dashboard for business decisions.
+- `database.csv` is the dashboard's data source and must remain in the same folder as `dashboard.py`.
+- The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, and client type. It contains 105 rows representing 13,663 source client-month records across April–October 2026.
+- Direct contact fields, staff names, phone numbers, and internal identifiers from the uploaded workbook are not included in the repository extract.
+- To refresh the dashboard, replace `database.csv` with a newly aggregated CSV that preserves these column names:
+
+  `Mothly, Zone, Client Type, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
+
+## Data interpretation
+
+- Net tertiary sales are sourced from the workbook's `NetTertiary` field.
+- Opening and closing values are retained as reported. Negative balances are present in the source and are not adjusted by the dashboard.
+- October 2026 has fewer source records than September and may be a partial reporting month; interpret the latest month-on-month comparison cautiously.
+- The uploaded workbook does not provide verified profit, margin, order, customer acquisition, conversion, product, or channel measures in the aggregated extract. These metrics are not fabricated or displayed.
+
