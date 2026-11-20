@@ -27,37 +27,47 @@ st.markdown(
     """
     <style>
       :root {
-        --page-bg: #f1f6f1; --panel: #ffffff; --ink: #18352b;
-        --muted: #62776c; --line: #dce9df; --navy: #244b3b;
+        --page-bg: #f3f7f3; --panel: #ffffff; --ink: #17382c;
+        --muted: #718278; --line: #e1ebe3; --navy: #214b38;
         --blue: #477b61; --teal: #8eae91; --green: #397653;
-        --shadow: 0 8px 28px rgba(36,75,59,.07);
+        --shadow: 0 5px 22px rgba(31,72,49,.055);
       }
-      .stApp {background: radial-gradient(ellipse at 8% 0%, rgba(151,190,151,.16), transparent 38%), var(--page-bg); color: var(--ink);}
-      .block-container {max-width: 1700px; padding: 1.6rem 2rem 2.5rem;}
+      * { box-sizing: border-box; }
+      .stApp {background: radial-gradient(ellipse at 10% 0%, rgba(164,197,165,.19), transparent 34%), linear-gradient(180deg,#f7faf7 0%,var(--page-bg) 46%); color: var(--ink);}
+      .block-container {max-width: 1680px; padding: 1.8rem 2.15rem 3rem;}
       h1, h2, h3 {color: var(--ink); letter-spacing: -.45px;}
-      h1 {font-size: 1.75rem !important; font-weight: 760 !important;}
-      h2 {font-size: 1.05rem !important; font-weight: 720 !important;}
-      h3 {font-size: .9rem !important; font-weight: 700 !important;}
-      div[data-testid="stCaptionContainer"], .stMarkdown small {color: var(--muted);}
-      [data-testid="stMetric"] {
-        background: var(--panel); border: 1px solid var(--line);
-        border-radius: 13px; padding: 15px 16px; min-height: 112px; border-top: 3px solid #a9c9ad;
-        box-shadow: var(--shadow); gap: 7px;
+      h1 {font-size: 2rem !important; font-weight: 780 !important; letter-spacing: -.9px !important; margin:.1rem 0 .2rem !important;}
+      h2 {font-size: 1.12rem !important; font-weight: 760 !important; margin: .15rem 0 .35rem !important;}
+      h3 {font-size: .92rem !important; font-weight: 720 !important;}
+      p, [data-testid="stCaptionContainer"], .stMarkdown small {color: var(--muted);}
+      div[data-testid="stMetric"] {
+        background: linear-gradient(145deg,#fff 0%,#fbfdfb 100%); border: 1px solid var(--line);
+        border-radius: 16px; padding: 17px 18px; min-height: 122px; border-top: 3px solid #9fbea4;
+        box-shadow: var(--shadow); gap: 8px; transition: transform .18s ease, box-shadow .18s ease;
       }
-      [data-testid="stMetricLabel"] {color: var(--muted); font-size: .72rem; font-weight: 650;}
-      [data-testid="stMetricValue"] {color: var(--ink); font-size: 1.55rem; font-weight: 760;}
-      [data-testid="stMetricDelta"] {font-size: .68rem; font-weight: 700;}
+      div[data-testid="stMetric"]:hover {transform: translateY(-2px); box-shadow: 0 10px 26px rgba(31,72,49,.09);}
+      [data-testid="stMetricLabel"] {color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing:.02em;}
+      [data-testid="stMetricValue"] {color: var(--ink); font-size: 1.62rem; font-weight: 780; letter-spacing:-.7px;}
+      [data-testid="stMetricDelta"] {font-size: .69rem; font-weight: 700;}
       div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-color: var(--line); border-radius: 13px; box-shadow: var(--shadow);
-        background: var(--panel);
+        border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+        background: rgba(255,255,255,.94); padding: 2px;
       }
+      div[data-testid="stSelectbox"] {min-width:0;}
       div[data-testid="stSelectbox"] label {
-        color: #526c5d; font-size: .68rem; font-weight: 750;
-        letter-spacing: .045em; text-transform: uppercase;
+        color: #5d7466; font-size: .66rem; font-weight: 780;
+        letter-spacing: .055em; text-transform: uppercase; min-height: 1.1rem;
       }
       div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-        border-radius: 9px; border-color: var(--line); background: #fff; min-height: 39px;
+        border-radius: 10px; border-color: var(--line); background: #fff; min-height: 42px;
+        box-shadow: inset 0 1px 2px rgba(25,55,35,.025);
       }
+      div[data-testid="stSelectbox"] div[data-baseweb="select"] span {font-size:.82rem;}
+      div[data-testid="stPlotlyChart"] {background:#fff;border:1px solid var(--line);border-radius:15px;padding:9px 10px;box-shadow:var(--shadow);}
+      div[data-testid="stDataFrame"] {border:1px solid var(--line);border-radius:13px;overflow:hidden;}
+      div[data-testid="stDownloadButton"] button {min-height:40px;}
+      .stButton button:focus, .stDownloadButton button:focus {box-shadow:0 0 0 2px rgba(71,123,97,.2);}
+      hr {margin:1.35rem 0;border-color:var(--line);}
       div[data-testid="stButton"] button, div[data-testid="stDownloadButton"] button {
         border-radius: 9px; border: 1px solid var(--line); font-weight: 650;
       }
