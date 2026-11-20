@@ -132,19 +132,22 @@ with st.container(border=True):
         '<div style="font-size:10px;letter-spacing:1.2px;color:#778397;font-weight:800;margin-bottom:8px;">DASHBOARD FILTERS</div>',
         unsafe_allow_html=True,
     )
-    filter_period, filter_zone, filter_client = st.columns([20, 9, 15])
+    filter_period, filter_month, filter_zone, filter_client = st.columns([17, 12, 9, 15])
     with filter_period:
         period_label = st.selectbox(
             "1. Reporting period",
             ["All available months", "Last 6 months", "Last 3 months"],
             index=0,
         )
+    with filter_month:
+        month_options = ["All months"] + [month_labels[pd.Timestamp(month)] for month in months_available]
+        selected_month = st.selectbox("2. Month", month_options)
     with filter_zone:
         zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
-        selected_zone = st.selectbox("2. Zone", zone_options)
+        selected_zone = st.selectbox("3. Zone", zone_options)
     with filter_client:
         client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
-        selected_client = st.selectbox("3. Client type", client_options)
+        selected_client = st.selectbox("4. Client type", client_options)
 
 st.caption(
     f"Source: repository database.csv  ·  Coverage: "
@@ -159,6 +162,11 @@ period_count = {
 }[period_label]
 selected_months = months_available[-period_count:]
 filtered = data[data["Month"].isin(selected_months)].copy()
+if selected_month != "All months":
+    selected_month_date = pd.Timestamp(
+        next(month for month in months_available if month_labels[pd.Timestamp(month)] == selected_month)
+    )
+    filtered = filtered[filtered["Month"] == selected_month_date]
 if selected_zone != "All zones":
     filtered = filtered[filtered["Zone"] == selected_zone]
 if selected_client != "All client types":
