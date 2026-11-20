@@ -1,231 +1,315 @@
 from __future__ import annotations
 
-from io import StringIO
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="Mamaearth | Business Intelligence", page_icon="🌿", layout="wide")
+st.set_page_config(
+    page_title="Mamaearth | Tertiary Sales & Inventory",
+    page_icon="🌿",
+    layout="wide",
+)
 
-# -------------------------------------------------------------------
-# Mamaearth Executive BI Dashboard
-# Demo dataset only: replace DATA with verified business data for use
-# in operational or financial decisions.
-# -------------------------------------------------------------------
-MONTHS = ["Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov"]
-CATEGORIES = ["Electronics", "Fashion", "Home", "Beauty"]
-REGIONS = ["North", "South", "West", "East"]
-CHANNELS = ["Online", "Retail", "Partner"]
+DATA_FILE = Path(__file__).with_name("database.csv")
+REQUIRED_COLUMNS = [
+    "Mothly", "Zone", "Client Type", "Records", "NetTertiary",
+    "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue",
+    "ReturnsValue",
+]
+PALETTE = ["#236B5A", "#5AAE91", "#D9A441", "#7C83C8", "#D87979", "#75A7C9"]
 
-DATA = {
-    "revenue": [29, 31, 28, 35, 38, 36, 42, 45, 43, 48, 51, 56],
-    "previous": [26, 28, 27, 31, 33, 34, 37, 39, 40, 42, 44, 47],
-    "target": [30, 30, 31, 33, 35, 37, 39, 41, 43, 45, 47, 50],
-    "customers": [310, 340, 325, 380, 405, 420, 450, 470, 490, 525, 550, 590],
-    "regions": {"North": 32, "South": 25, "West": 42, "East": 18},
-    "categories": {"Electronics": 40, "Fashion": 25, "Home": 20, "Beauty": 15},
-    "category_margin": {"Electronics": .28, "Fashion": .284, "Home": .29, "Beauty": .307},
-    "products": {
-        "Smartphone X": 14.2, "Wireless Audio": 11.8, "Running Shoes": 9.7,
-        "Smart Watch": 8.9, "Home Decor Set": 7.8, "Skincare Kit": 7.1,
-        "Laptop Pro": 6.8, "Travel Backpack": 6.1, "Coffee Maker": 5.6,
-        "Fitness Band": 4.9,
-    },
-    "channels": {"Online": 56, "Retail": 31, "Partner": 13},
-    "statuses": {"Delivered": 76, "Processing": 14, "Returned": 6, "Cancelled": 4},
-    "segments": {"New": 34, "Returning": 48, "VIP": 18},
-}
+st.markdown(
+    """
+    <style>
+      .block-container {padding-top: 1.35rem; padding-bottom: 2.5rem;}
+      [data-testid="stMetric"] {
+        background: #ffffff; border: 1px solid #e7ece9;
+        padding: 15px 17px; border-radius: 13px;
+      }
+      [data-testid="stMetricLabel"] {color: #64736d;}
+      h1, h2, h3 {letter-spacing: -.35px;}
+      div[data-testid="stCaptionContainer"] {color: #6f7d77;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-PALETTE = ["#4776e6", "#20b8a6", "#e6a23c", "#8b72d8", "#e4778b", "#65a7d8"]
-st.markdown("""
-<style>
-.block-container {padding-top: 1.5rem; padding-bottom: 2.5rem;}
-[data-testid="stMetric"] {background:#ffffff; border:1px solid #e8edf3; padding:14px 16px; border-radius:12px;}
-[data-testid="stMetricLabel"] {color:#778397;}
-h1, h2, h3 {letter-spacing:-.3px;}
-div[data-testid="stCaptionContainer"] {color:#778397;}
-</style>
-""", unsafe_allow_html=True)
+
+@st.cache_data
+def load_data() -> pd.DataFrame:
+    if not DATA_FILE.exists():
+        raise FileNotFoundError(
+            "database.csv is missing. Keep database.csv in the same folder as dashboard.py."
+        )
+    frame = pd.read_csv(DATA_FILE, parse_dates=["Mothly"])
+    missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
+    if missing:
+        raise ValueError(f"database.csv is missing required columns: {', '.join(missing)}")
+    frame = frame.rename(columns={"Mothly": "Month", "Client Type": "ClientType"})
+    numeric = [
+        "Records", "NetTertiary", "SalesQty", "SecondaryValue",
+        "OpeningValue", "ClosingValue", "ReturnsValue",
+    ]
+    for column in numeric:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce").fillna(0)
+    frame["MonthLabel"] = frame["Month"].dt.strftime("%b %Y")
+    return frame
+
+
+def crore(value: float) -> str:
+    return f"₹{value / 10_000_000:,.2f} Cr"
+
+
+try:
+    data = load_data()
+except Exception as exc:
+    st.error(f"Unable to load the dashboard database: {exc}")
+    st.stop()
+
+months_available = sorted(data["Month"].dropna().unique())
+month_labels = {pd.Timestamp(month): pd.Timestamp(month).strftime("%b %Y") for month in months_available}
 
 st.title("🌿 Mamaearth")
-st.caption("BUSINESS INTELLIGENCE  |  Executive performance overview")
-st.info("Demo data notice: all figures are synthetic illustrations, not verified Mamaearth business results.")
+st.caption("TERTIARY SALES & INVENTORY INTELLIGENCE  |  Executive dashboard")
 
 with st.sidebar:
     st.header("Dashboard filters")
-    period_label = st.selectbox("Date range", ["Last 12 months", "Last 6 months", "Last 3 months"])
-    period = {"Last 12 months": 12, "Last 6 months": 6, "Last 3 months": 3}[period_label]
-    region_filter = st.selectbox("Region", ["All"] + REGIONS)
-    category_filter = st.selectbox("Category", ["All"] + CATEGORIES)
-    channel_filter = st.selectbox("Channel", ["All"] + CHANNELS)
-    comparison = st.selectbox("Comparison", ["Previous period", "Target"])
+    period_label = st.selectbox(
+        "Reporting period",
+        ["All available months", "Last 6 months", "Last 3 months"],
+        index=0,
+    )
+    zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
+    selected_zone = st.selectbox("Zone", zone_options)
+    client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
+    selected_client = st.selectbox("Client type", client_options)
     st.divider()
-    st.caption("FY 2025–26 · Illustrative demo workspace")
+    st.caption(
+        f"Source: repository database.csv\n\n"
+        f"Coverage: {pd.Timestamp(months_available[0]).strftime('%b %Y')} – "
+        f"{pd.Timestamp(months_available[-1]).strftime('%b %Y')}"
+    )
 
-# Keep filter adjustments consistent throughout all views.
-region_factor = 1.0 if region_filter == "All" else DATA["regions"][region_filter] / sum(DATA["regions"].values()) * 4
-category_factor = 1.0 if category_filter == "All" else DATA["categories"][category_filter] / 25
-channel_factor = 1.0 if channel_filter == "All" else DATA["channels"][channel_filter] / 40
-scale = region_factor * category_factor * channel_factor
+period_count = {
+    "All available months": len(months_available),
+    "Last 6 months": 6,
+    "Last 3 months": 3,
+}[period_label]
+selected_months = months_available[-period_count:]
+filtered = data[data["Month"].isin(selected_months)].copy()
+if selected_zone != "All zones":
+    filtered = filtered[filtered["Zone"] == selected_zone]
+if selected_client != "All client types":
+    filtered = filtered[filtered["ClientType"] == selected_client]
 
-months = MONTHS[-period:]
-revenue = pd.Series(DATA["revenue"][-period:], index=months, dtype=float) * scale
-previous = pd.Series(DATA["previous"][-period:], index=months, dtype=float) * scale
-target = pd.Series(DATA["target"][-period:], index=months, dtype=float) * scale
-customer_counts = pd.Series(DATA["customers"][-period:], index=months, dtype=float) * scale
-total_revenue = float(revenue.sum())
-previous_revenue = float(previous.sum())
-target_revenue = float(target.sum())
-orders = max(1, round(total_revenue * 17.4))
-customers = max(1, round(orders * .62))
-profit = total_revenue * .265
-aov = total_revenue * 100000 / orders
-growth = (total_revenue / previous_revenue - 1) * 100 if previous_revenue else 0
-target_attainment = total_revenue / target_revenue * 100 if target_revenue else 0
-mom_growth = (revenue.iloc[-1] / revenue.iloc[-2] - 1) * 100 if len(revenue) > 1 and revenue.iloc[-2] else 0
-comparison_value = previous_revenue if comparison == "Previous period" else target_revenue
-comparison_growth = (total_revenue / comparison_value - 1) * 100 if comparison_value else 0
-new_customers = round(customers * DATA["segments"]["New"] / 100)
-returning_customers = round(customers * DATA["segments"]["Returning"] / 100)
+if filtered.empty:
+    st.warning("No records match the selected filters.")
+    st.stop()
+
+filtered = filtered.sort_values("Month")
+monthly = (
+    filtered.groupby("Month", as_index=False)
+    .agg(
+        NetTertiary=("NetTertiary", "sum"),
+        SalesQty=("SalesQty", "sum"),
+        Records=("Records", "sum"),
+        SecondaryValue=("SecondaryValue", "sum"),
+        OpeningValue=("OpeningValue", "sum"),
+        ClosingValue=("ClosingValue", "sum"),
+        ReturnsValue=("ReturnsValue", "sum"),
+    )
+    .sort_values("Month")
+)
+total_net = float(filtered["NetTertiary"].sum())
+total_qty = int(filtered["SalesQty"].sum())
+total_records = int(filtered["Records"].sum())
+total_secondary = float(filtered["SecondaryValue"].sum())
+total_returns = float(filtered["ReturnsValue"].sum())
+total_closing = float(filtered["ClosingValue"].sum())
+
+mom = None
+if len(monthly) >= 2:
+    prior = float(monthly.iloc[-2]["NetTertiary"])
+    latest = float(monthly.iloc[-1]["NetTertiary"])
+    if prior:
+        mom = (latest / prior - 1) * 100
 
 st.subheader("Executive KPI scorecard")
-st.caption(f"{period_label} · {region_filter} region · {category_filter} category · {channel_filter} channel")
-kpis = [
-    ("Total revenue", f"₹{total_revenue:,.1f}L", f"{comparison_growth:+.1f}% vs {comparison.lower()}"),
-    ("Total sales", f"₹{total_revenue:,.1f}L", "Revenue value"),
-    ("Total orders", f"{orders:,}", "Estimated demo orders"),
-    ("Total customers", f"{customers:,}", "Estimated demo customers"),
-    ("New customers", f"{new_customers:,}", "Illustrative segment split"),
-    ("Returning customers", f"{returning_customers:,}", "Illustrative segment split"),
-    ("Average order value", f"₹{aov:,.0f}", "Revenue ÷ orders"),
-    ("Profit", f"₹{profit:,.1f}L", "Estimated at 26.5% margin"),
-    ("Profit margin", "26.5%", "Illustrative assumption"),
-    ("Growth rate", f"{growth:+.1f}%", "Against previous period"),
-    ("Conversion rate", "3.8%", "Illustrative assumption"),
-    ("Customer retention", "68.4%", "Illustrative assumption"),
-    ("Target achievement", f"{target_attainment:.1f}%", "Revenue ÷ target"),
-    ("YoY growth", "14.8%", "Illustrative assumption"),
-    ("MoM growth", f"{mom_growth:+.1f}%", "Latest month vs prior month"),
-]
-for row in range(3):
-    cols = st.columns(5)
-    for col, (label, value, help_text) in zip(cols, kpis[row * 5:row * 5 + 5]):
-        col.metric(label, value, help_text)
+st.caption(
+    f"{period_label}  ·  {selected_zone}  ·  {selected_client}  ·  "
+    f"{len(monthly)} month(s) represented"
+)
+
+kpi_cols = st.columns(5)
+kpi_cols[0].metric(
+    "Net tertiary sales",
+    crore(total_net),
+    f"{mom:+.1f}% vs prior month" if mom is not None else None,
+)
+kpi_cols[1].metric("Tertiary sales quantity", f"{total_qty:,.0f}")
+kpi_cols[2].metric("Client-month records", f"{total_records:,}")
+kpi_cols[3].metric("Secondary value", crore(total_secondary))
+kpi_cols[4].metric("Returns value", crore(total_returns))
+
+st.caption(
+    "Net tertiary sales uses the source field NetTertiary. Values are shown as reported; "
+    "this extract does not contain verified profit, margin, order, customer-acquisition, "
+    "or conversion metrics."
+)
 
 st.divider()
-st.subheader("Revenue & growth performance")
-left, right = st.columns([1.6, 1])
+st.subheader("Sales performance")
+
+left, right = st.columns([1.55, 1])
 with left:
-    trend = pd.DataFrame({"Revenue": revenue, "Previous period": previous}).reset_index(names="Month")
-    fig = px.line(trend, x="Month", y=["Revenue", "Previous period"], markers=True,
-                  color_discrete_sequence=[PALETTE[0], PALETTE[1]])
-    fig.update_layout(height=330, margin=dict(l=10, r=10, t=20, b=10), legend_title_text="")
-    fig.update_yaxes(title="Revenue (₹ lakh)", rangemode="tozero")
+    trend = monthly.copy()
+    trend["Month"] = trend["Month"].dt.strftime("%b %Y")
+    fig = px.line(
+        trend,
+        x="Month",
+        y="NetTertiary",
+        markers=True,
+        color_discrete_sequence=[PALETTE[0]],
+        labels={"NetTertiary": "Net tertiary sales (₹)", "Month": ""},
+    )
+    fig.update_traces(line=dict(width=3), marker=dict(size=8))
+    fig.update_layout(height=350, margin=dict(l=8, r=8, t=18, b=8), yaxis_tickformat=",.0f")
     st.plotly_chart(fig, use_container_width=True)
+
 with right:
-    category_data = DATA["categories"] if category_filter == "All" else {category_filter: DATA["categories"][category_filter]}
-    cat_df = pd.DataFrame({"Category": list(category_data), "Share": list(category_data.values())})
-    fig = px.pie(cat_df, names="Category", values="Share", hole=.62, color_discrete_sequence=PALETTE)
-    fig.update_layout(height=330, margin=dict(l=5, r=5, t=20, b=10), legend_title_text="")
+    zone_mix = (
+        filtered.groupby("Zone", as_index=False)["NetTertiary"]
+        .sum()
+        .sort_values("NetTertiary", ascending=True)
+    )
+    fig = px.bar(
+        zone_mix,
+        x="NetTertiary",
+        y="Zone",
+        orientation="h",
+        color="Zone",
+        color_discrete_sequence=PALETTE,
+        labels={"NetTertiary": "Net tertiary sales (₹)", "Zone": ""},
+    )
+    fig.update_layout(height=350, showlegend=False, margin=dict(l=8, r=8, t=18, b=8))
     st.plotly_chart(fig, use_container_width=True)
+
+st.divider()
+st.subheader("Sales mix & operating movement")
 
 c1, c2, c3 = st.columns(3)
 with c1:
-    region_values = DATA["regions"] if region_filter == "All" else {region_filter: DATA["regions"][region_filter]}
-    rdf = pd.DataFrame({"Region": list(region_values), "Revenue": [v * scale for v in region_values.values()]})
-    fig = px.bar(rdf, x="Region", y="Revenue", color="Region", color_discrete_sequence=PALETTE)
-    fig.update_layout(height=280, showlegend=False, margin=dict(l=5, r=5, t=15, b=5))
+    client_mix = (
+        filtered.groupby("ClientType", as_index=False)["NetTertiary"]
+        .sum()
+        .sort_values("NetTertiary", ascending=False)
+    )
+    fig = px.pie(
+        client_mix,
+        names="ClientType",
+        values="NetTertiary",
+        hole=0.58,
+        color_discrete_sequence=PALETTE,
+    )
+    fig.update_layout(height=310, margin=dict(l=5, r=5, t=15, b=5), legend_title_text="")
     st.plotly_chart(fig, use_container_width=True)
+
 with c2:
-    cats = [category_filter] if category_filter != "All" else CATEGORIES
-    pdf = pd.DataFrame({"Category": cats, "Gross profit": [total_revenue * DATA["categories"][c] / 100 * DATA["category_margin"][c] for c in cats]})
-    fig = px.bar(pdf, x="Category", y="Gross profit", color="Category", color_discrete_sequence=PALETTE)
-    fig.update_layout(height=280, showlegend=False, margin=dict(l=5, r=5, t=15, b=5))
+    compare = monthly[["Month", "NetTertiary", "SecondaryValue"]].copy()
+    compare["Month"] = compare["Month"].dt.strftime("%b %Y")
+    compare = compare.melt(
+        id_vars="Month",
+        value_vars=["NetTertiary", "SecondaryValue"],
+        var_name="Metric",
+        value_name="Value",
+    )
+    compare["Metric"] = compare["Metric"].map(
+        {"NetTertiary": "Net tertiary", "SecondaryValue": "Secondary"}
+    )
+    fig = px.bar(
+        compare,
+        x="Month",
+        y="Value",
+        color="Metric",
+        barmode="group",
+        color_discrete_sequence=PALETTE[:2],
+        labels={"Value": "Value (₹)", "Month": ""},
+    )
+    fig.update_layout(height=310, margin=dict(l=5, r=5, t=15, b=5), legend_title_text="")
     st.plotly_chart(fig, use_container_width=True)
+
 with c3:
-    sdf = pd.DataFrame({"Status": list(DATA["statuses"]), "Share": list(DATA["statuses"].values())})
-    fig = px.pie(sdf, names="Status", values="Share", hole=.58, color_discrete_sequence=PALETTE)
-    fig.update_layout(height=280, margin=dict(l=5, r=5, t=15, b=5), legend_title_text="")
+    stock = monthly[["Month", "OpeningValue", "ClosingValue"]].copy()
+    stock["Month"] = stock["Month"].dt.strftime("%b %Y")
+    stock = stock.melt(
+        id_vars="Month",
+        value_vars=["OpeningValue", "ClosingValue"],
+        var_name="Metric",
+        value_name="Value",
+    )
+    stock["Metric"] = stock["Metric"].map(
+        {"OpeningValue": "Opening value", "ClosingValue": "Closing value"}
+    )
+    fig = px.bar(
+        stock,
+        x="Month",
+        y="Value",
+        color="Metric",
+        barmode="group",
+        color_discrete_sequence=PALETTE[2:4],
+        labels={"Value": "Reported value (₹)", "Month": ""},
+    )
+    fig.update_layout(height=310, margin=dict(l=5, r=5, t=15, b=5), legend_title_text="")
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.subheader("Customer intelligence")
-c1, c2 = st.columns([1.5, 1])
-with c1:
-    cdf = customer_counts.rename("New customers").rename_axis("Month").reset_index()
-    fig = px.bar(cdf, x="Month", y="New customers", color_discrete_sequence=[PALETTE[3]])
-    fig.update_layout(height=300, margin=dict(l=5, r=5, t=15, b=5))
-    st.plotly_chart(fig, use_container_width=True)
-with c2:
-    segdf = pd.DataFrame({"Segment": list(DATA["segments"]), "Customers": list(DATA["segments"].values())})
-    fig = px.pie(segdf, names="Segment", values="Customers", hole=.6, color_discrete_sequence=PALETTE)
-    fig.update_layout(height=300, margin=dict(l=5, r=5, t=15, b=5), legend_title_text="")
-    st.plotly_chart(fig, use_container_width=True)
+st.subheader("Zone and client-type performance")
+summary = (
+    filtered.groupby(["Zone", "ClientType"], as_index=False)
+    .agg(
+        ClientMonthRecords=("Records", "sum"),
+        NetTertiary=("NetTertiary", "sum"),
+        SalesQty=("SalesQty", "sum"),
+        SecondaryValue=("SecondaryValue", "sum"),
+        ReturnsValue=("ReturnsValue", "sum"),
+        ClosingValue=("ClosingValue", "sum"),
+    )
+    .sort_values("NetTertiary", ascending=False)
+)
+display = summary.rename(
+    columns={
+        "Zone": "Zone",
+        "ClientType": "Client type",
+        "ClientMonthRecords": "Client-month records",
+        "NetTertiary": "Net tertiary sales (₹)",
+        "SalesQty": "Sales quantity",
+        "SecondaryValue": "Secondary value (₹)",
+        "ReturnsValue": "Returns value (₹)",
+        "ClosingValue": "Closing value (₹)",
+    }
+)
+st.dataframe(display, use_container_width=True, hide_index=True)
 
-st.divider()
-st.subheader("Product & channel performance")
-c1, c2 = st.columns([1.4, 1])
-with c1:
-    products = pd.DataFrame({"Product": list(DATA["products"]), "Revenue": list(DATA["products"].values())})
-    if category_filter != "All":
-        product_category = {"Smartphone X":"Electronics", "Wireless Audio":"Electronics", "Smart Watch":"Electronics",
-                            "Laptop Pro":"Electronics", "Running Shoes":"Fashion", "Travel Backpack":"Fashion",
-                            "Home Decor Set":"Home", "Coffee Maker":"Home", "Skincare Kit":"Beauty", "Fitness Band":"Beauty"}
-        products = products[products["Product"].map(product_category) == category_filter]
-    products = products.sort_values("Revenue", ascending=True)
-    fig = px.bar(products, x="Revenue", y="Product", orientation="h", color_discrete_sequence=[PALETTE[0]])
-    fig.update_layout(height=390, margin=dict(l=5, r=5, t=15, b=5), yaxis_title="")
-    st.plotly_chart(fig, use_container_width=True)
-with c2:
-    chdf = pd.DataFrame({"Channel": list(DATA["channels"]), "Share": list(DATA["channels"].values())})
-    if channel_filter != "All":
-        chdf = chdf[chdf["Channel"] == channel_filter]
-    fig = px.bar(chdf, x="Channel", y="Share", color="Channel", color_discrete_sequence=PALETTE)
-    fig.update_layout(height=390, margin=dict(l=5, r=5, t=15, b=5), showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+st.download_button(
+    "⬇ Download filtered dashboard data (CSV)",
+    data=filtered.to_csv(index=False).encode("utf-8"),
+    file_name="mamaearth_filtered_dashboard_data.csv",
+    mime="text/csv",
+)
 
-st.divider()
-st.subheader("Target achievement & operating performance")
-c1, c2 = st.columns([1.5, 1])
-with c1:
-    target_df = pd.DataFrame({"Month": months, "Actual": revenue.values, "Target": target.values})
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=target_df["Month"], y=target_df["Target"], name="Target", marker_color="#dce4ef"))
-    fig.add_trace(go.Scatter(x=target_df["Month"], y=target_df["Actual"], name="Actual", mode="lines+markers", line=dict(color=PALETTE[0], width=3)))
-    fig.update_layout(height=320, margin=dict(l=5, r=5, t=15, b=5), barmode="overlay", legend_title_text="", yaxis_title="₹ lakh")
-    st.plotly_chart(fig, use_container_width=True)
-with c2:
-    funnel = pd.DataFrame({"Stage": ["Website visits", "Product views", "Add to cart", "Checkout started", "Orders completed"],
-                           "Count": [84200, 32600, 12480, 7820, 4260]})
-    fig = px.funnel(funnel, x="Count", y="Stage", color_discrete_sequence=[PALETTE[0]])
-    fig.update_layout(height=320, margin=dict(l=5, r=5, t=15, b=5))
-    st.plotly_chart(fig, use_container_width=True)
+with st.expander("Data notes & interpretation"):
+    st.markdown(
+        """
+        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, and client type.
+        - It contains 105 aggregate rows representing 13,663 source client-month records across April–October 2026.
+        - The latest month has fewer source records than the preceding month and may be a partial reporting month; interpret its month-on-month comparison cautiously.
+        - Opening and closing values are shown as supplied. Negative balances are present in the source and have not been silently adjusted.
+        - The source extract does not provide product-level, channel-level, customer acquisition, conversion, profit, or margin measures. Those metrics are intentionally not fabricated.
+        - Refresh the repository data by replacing database.csv with a newly aggregated extract that retains the same column names.
+        """
+    )
 
-st.divider()
-st.subheader("Detailed performance table")
-selected_categories = [category_filter] if category_filter != "All" else CATEGORIES
-detail_rows = []
-for cat in selected_categories:
-    cat_revenue = total_revenue * DATA["categories"][cat] / 100
-    cat_orders = max(1, round(orders * DATA["categories"][cat] / 100))
-    margin = DATA["category_margin"][cat]
-    cat_profit = cat_revenue * margin
-    detail_rows.append({"Product category": cat, "Revenue (₹ lakh)": round(cat_revenue, 2),
-                        "Orders": cat_orders, "Average order value (₹)": round(cat_revenue * 100000 / cat_orders),
-                        "Profit (₹ lakh)": round(cat_profit, 2), "Profit margin": f"{margin:.1%}",
-                        "Performance": "Above plan" if margin >= .28 else "Monitor"})
-detail_df = pd.DataFrame(detail_rows)
-st.dataframe(detail_df, use_container_width=True, hide_index=True)
-
-st.download_button("⬇ Download filtered data (CSV)", detail_df.to_csv(index=False).encode("utf-8"),
-                   file_name="mamaearth_dashboard_export.csv", mime="text/csv")
-
-st.divider()
-st.subheader("Business insights & recommended actions")
-i1, i2, i3 = st.columns(3)
-i1.info(f"**Growth opportunity**\n\nRevenue is {growth:+.1f}% against the previous period. Review the strongest acquisition and channel drivers.")
-i2.info(f"**Category mix**\n\n{max(DATA['categories'], key=DATA['categories'].get)} is the largest category in the illustrative dataset. Monitor concentration and margin.")
-i3.info(f"**Customer strategy**\n\nReturning customers represent {DATA['segments']['Returning']}% of the sample. Test loyalty and replenishment campaigns.")
-
-st.caption("All monetary values are illustrative INR lakh unless stated otherwise. Replace the sample data and assumptions with verified source data before making business decisions.")
+st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: database.csv")
