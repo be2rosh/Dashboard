@@ -15,9 +15,9 @@ st.set_page_config(
     layout="wide",
 )
 
-DATA_FILE = Path(__file__).with_name("database.csv.gz.b64")
+DATA_FILES = sorted(Path(__file__).parent.glob("database_source_part*.csv.gz.b64"))
 REQUIRED_COLUMNS = [
-    "Mothly", "Zone", "State", "Client Type", "Records", "NetTertiary",
+    "Mothly", "Zone", "State", "Client Type", "SourceName", "Records", "NetTertiary",
     "SalesQty", "SecondaryValue", "OpeningValue", "ClosingValue",
     "ReturnsValue",
 ]
@@ -78,16 +78,19 @@ st.markdown(
 
 @st.cache_data
 def load_data() -> pd.DataFrame:
-    if not DATA_FILE.exists():
+    if not DATA_FILES:
         raise FileNotFoundError(
-            "database.csv.gz.b64 is missing. Keep it in the same folder as dashboard.py."
+            "Sanitized SourceName data files are missing. Keep database_source_part*.csv.gz.b64 beside dashboard.py."
         )
-    try:
-        compressed_bytes = base64.b64decode(DATA_FILE.read_text(encoding="ascii"), validate=True)
-        csv_bytes = gzip.decompress(compressed_bytes)
-    except (ValueError, OSError, gzip.BadGzipFile) as exc:
-        raise ValueError("The dashboard data file is corrupted or is not valid gzip/base64 data.") from exc
-    frame = pd.read_csv(io.BytesIO(csv_bytes))
+    frames = []
+    for data_file in DATA_FILES:
+        try:
+            compressed_bytes = base64.b64decode(data_file.read_text(encoding="ascii"), validate=True)
+            csv_bytes = gzip.decompress(compressed_bytes)
+            frames.append(pd.read_csv(io.BytesIO(csv_bytes)))
+        except (ValueError, OSError, gzip.BadGzipFile) as exc:
+            raise ValueError(f"Dashboard data file {data_file.name} is corrupted or invalid.") from exc
+    frame = pd.concat(frames, ignore_index=True)
     missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
     if missing:
         raise ValueError(f"database.csv is missing required columns: {', '.join(missing)}")
@@ -95,7 +98,7 @@ def load_data() -> pd.DataFrame:
     frame = frame.dropna(subset=["Mothly"]).copy()
     if frame.empty:
         raise ValueError("database.csv has no valid reporting dates in Mothly.")
-    for column in ["Zone", "State", "Client Type"]:
+    for column in ["Zone", "State", "Client Type", "SourceName"]:
         frame[column] = frame[column].fillna("Unknown").astype(str).str.strip().replace("", "Unknown")
     frame = frame.rename(columns={"Mothly": "Month", "Client Type": "ClientType"})
     numeric = [
@@ -145,7 +148,7 @@ with st.container(border=True):
         '<div style="font-size:10px;letter-spacing:1.2px;color:#778397;font-weight:800;margin-bottom:8px;">DASHBOARD FILTERS</div>',
         unsafe_allow_html=True,
     )
-    filter_period, filter_month, filter_zone, filter_state, filter_client = st.columns([16, 11, 8, 12, 14])
+    filter_period, filter_month, filter_zone, filter_state, filter_client, filter_source = st.columns([14, 10, 8, 10, 11, 18])
     with filter_period:
         period_label = st.selectbox(
             "1. Reporting period",
@@ -170,6 +173,9 @@ with st.container(border=True):
     with filter_client:
         client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
         selected_client = st.selectbox("5. Client type", client_options)
+    with filter_source:
+        source_options = ["All sources"] + sorted(data["SourceName"].dropna().astype(str).unique().tolist())
+        selected_source = st.selectbox("6. SourceName", source_options)
 
 st.caption(
     f"Source: sanitized repository data  ·  Coverage: "
@@ -190,6 +196,8 @@ if selected_state != "All states":
     filtered = filtered[filtered["State"].astype(str) == selected_state]
 if selected_client != "All client types":
     filtered = filtered[filtered["ClientType"] == selected_client]
+if selected_source != "All sources":
+    filtered = filtered[filtered["SourceName"] == selected_source]
 
 if filtered.empty:
     st.warning("No records match the selected filters.")
@@ -226,7 +234,7 @@ if len(monthly) >= 2:
 st.markdown("## Executive KPI scorecard")
 st.caption(
     f"{period_label}  ·  {selected_month}  ·  {selected_zone}  ·  "
-    f"{selected_state}  ·  {selected_client}  ·  {len(monthly)} month(s) represented"
+    f"{selected_state}  ·  {selected_client}  ·  {selected_source}  ·  {len(monthly)} month(s) represented"
 )
 
 kpi_cols = st.columns(5)
@@ -352,9 +360,9 @@ with c3:
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.markdown("## Zone, state and client-type performance")
+st.markdown("## Zone, state, client-type and SourceName performance")
 summary = (
-    filtered.groupby(["Zone", "State", "ClientType"], as_index=False)
+    filtered.groupby(["Zone", "State", "ClientType", "SourceName"], as_index=False)
     .agg(
         ClientMonthRecords=("Records", "sum"),
         NetTertiary=("NetTertiary", "sum"),
@@ -370,6 +378,7 @@ display = summary.rename(
         "Zone": "Zone",
         "State": "State",
         "ClientType": "Client type",
+        "SourceName": "SourceName",
         "ClientMonthRecords": "Client-month records",
         "NetTertiary": "Net tertiary sales (₹)",
         "SalesQty": "Sales quantity",
@@ -390,13 +399,13 @@ st.download_button(
 with st.expander("Data notes & interpretation"):
     st.markdown(
         """
-        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, state, and client type.
-        - It contains 436 aggregate rows representing 13,663 source client-month records across April–October 2026.
+        - The repository database is an **aggregated, sanitized extract** grouped by month, zone, state, client type, and SourceName.
+        - It contains 2,219 aggregate rows representing 13,663 source client-month records across April–October 2026, with 256 named sources plus an Unknown bucket.
         - The latest month has fewer source records than the preceding month and may be a partial reporting month; interpret its month-on-month comparison cautiously.
         - Opening and closing values are shown as supplied. Negative balances are present in the source and have not been silently adjusted.
         - The source extract does not provide product-level, channel-level, customer acquisition, conversion, profit, or margin measures. Those metrics are intentionally not fabricated.
-        - Refresh the repository data by regenerating the sanitized aggregate, then gzip-compressing and Base64-encoding it as database.csv.gz.b64.
+        - Refresh the repository data by regenerating the sanitized aggregate, splitting it into database_source_part*.csv.gz.b64 files, and gzip-compressing/Base64-encoding each part.
         """
     )
 
-st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: sanitized repository extract")
+st.caption("Mamaearth | Executive tertiary sales and inventory dashboard · Data source: sanitized SourceName aggregate")
