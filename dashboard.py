@@ -24,14 +24,50 @@ PALETTE = ["#236B5A", "#5AAE91", "#D9A441", "#7C83C8", "#D87979", "#75A7C9"]
 st.markdown(
     """
     <style>
-      .block-container {padding-top: 1.35rem; padding-bottom: 2.5rem;}
-      [data-testid="stMetric"] {
-        background: #ffffff; border: 1px solid #e7ece9;
-        padding: 15px 17px; border-radius: 13px;
+      :root {
+        --page-bg: #f4f6fa; --panel: #ffffff; --ink: #182230;
+        --muted: #778397; --line: #e8edf3; --navy: #14243a;
+        --blue: #4776e6; --teal: #20b8a6; --green: #159b72;
+        --shadow: 0 8px 28px rgba(22,38,58,.06);
       }
-      [data-testid="stMetricLabel"] {color: #64736d;}
-      h1, h2, h3 {letter-spacing: -.35px;}
-      div[data-testid="stCaptionContainer"] {color: #6f7d77;}
+      .stApp {background: var(--page-bg); color: var(--ink);}
+      .block-container {max-width: 1700px; padding: 1.6rem 2rem 2.5rem;}
+      h1, h2, h3 {color: var(--ink); letter-spacing: -.45px;}
+      h1 {font-size: 1.75rem !important; font-weight: 760 !important;}
+      h2 {font-size: 1.05rem !important; font-weight: 720 !important;}
+      h3 {font-size: .9rem !important; font-weight: 700 !important;}
+      div[data-testid="stCaptionContainer"], .stMarkdown small {color: var(--muted);}
+      [data-testid="stMetric"] {
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 13px; padding: 15px 16px; min-height: 112px;
+        box-shadow: var(--shadow); gap: 7px;
+      }
+      [data-testid="stMetricLabel"] {color: var(--muted); font-size: .72rem; font-weight: 650;}
+      [data-testid="stMetricValue"] {color: var(--ink); font-size: 1.55rem; font-weight: 760;}
+      [data-testid="stMetricDelta"] {font-size: .68rem; font-weight: 700;}
+      div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: var(--line); border-radius: 13px; box-shadow: var(--shadow);
+        background: var(--panel);
+      }
+      div[data-testid="stSelectbox"] label {
+        color: var(--muted); font-size: .68rem; font-weight: 750;
+        letter-spacing: .045em; text-transform: uppercase;
+      }
+      div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+        border-radius: 9px; border-color: var(--line); background: #fff; min-height: 39px;
+      }
+      div[data-testid="stButton"] button, div[data-testid="stDownloadButton"] button {
+        border-radius: 9px; border: 1px solid var(--line); font-weight: 650;
+      }
+      div[data-testid="stDownloadButton"] button {
+        background: var(--navy); color: #fff; border-color: var(--navy);
+      }
+      [data-testid="stPlotlyChart"] {background: transparent;}
+      hr {border-color: var(--line);}
+      @media(max-width: 760px) {
+        .block-container {padding: 1rem .8rem 2rem;}
+        [data-testid="stMetricValue"] {font-size: 1.15rem;}
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -72,27 +108,43 @@ except Exception as exc:
 months_available = sorted(data["Month"].dropna().unique())
 month_labels = {pd.Timestamp(month): pd.Timestamp(month).strftime("%b %Y") for month in months_available}
 
-st.title("🌿 Mamaearth")
-st.caption("TERTIARY SALES & INVENTORY INTELLIGENCE  |  Executive dashboard")
-
-# Filters are placed in a single horizontal row at the top of the dashboard.
-st.subheader("Dashboard filters")
-filter_period, filter_zone, filter_client = st.columns([20, 9, 15])
-
-with filter_period:
-    period_label = st.selectbox(
-        "1. Reporting period",
-        ["All available months", "Last 6 months", "Last 3 months"],
-        index=0,
+top_title, top_actions = st.columns([3, 1])
+with top_title:
+    st.markdown(
+        '<div style="font-size:10px;letter-spacing:1.5px;color:#4776e6;font-weight:800;">BUSINESS PERFORMANCE / OVERVIEW</div>',
+        unsafe_allow_html=True,
+    )
+    st.title("🌿 Mamaearth")
+    st.caption("TERTIARY SALES & INVENTORY INTELLIGENCE  |  Executive dashboard")
+with top_actions:
+    st.write("")
+    st.download_button(
+        "↓ Export data",
+        data=data.to_csv(index=False).encode("utf-8"),
+        file_name="mamaearth_dashboard_data.csv",
+        mime="text/csv",
+        use_container_width=True,
     )
 
-with filter_zone:
-    zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
-    selected_zone = st.selectbox("2. Zone", zone_options)
-
-with filter_client:
-    client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
-    selected_client = st.selectbox("3. Client type", client_options)
+# Compact filter bar, styled to match the supplied executive dashboard reference.
+with st.container(border=True):
+    st.markdown(
+        '<div style="font-size:10px;letter-spacing:1.2px;color:#778397;font-weight:800;margin-bottom:8px;">DASHBOARD FILTERS</div>',
+        unsafe_allow_html=True,
+    )
+    filter_period, filter_zone, filter_client = st.columns([20, 9, 15])
+    with filter_period:
+        period_label = st.selectbox(
+            "1. Reporting period",
+            ["All available months", "Last 6 months", "Last 3 months"],
+            index=0,
+        )
+    with filter_zone:
+        zone_options = ["All zones"] + sorted(data["Zone"].dropna().unique().tolist())
+        selected_zone = st.selectbox("2. Zone", zone_options)
+    with filter_client:
+        client_options = ["All client types"] + sorted(data["ClientType"].dropna().unique().tolist())
+        selected_client = st.selectbox("3. Client type", client_options)
 
 st.caption(
     f"Source: repository database.csv  ·  Coverage: "
@@ -144,7 +196,7 @@ if len(monthly) >= 2:
     if prior:
         mom = (latest / prior - 1) * 100
 
-st.subheader("Executive KPI scorecard")
+st.markdown("## Executive KPI scorecard")
 st.caption(
     f"{period_label}  ·  {selected_zone}  ·  {selected_client}  ·  "
     f"{len(monthly)} month(s) represented"
@@ -168,7 +220,7 @@ st.caption(
 )
 
 st.divider()
-st.subheader("Sales performance")
+st.markdown("## Sales performance")
 
 left, right = st.columns([1.55, 1])
 with left:
@@ -205,7 +257,7 @@ with right:
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.subheader("Sales mix & operating movement")
+st.markdown("## Sales mix & operating movement")
 
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -273,7 +325,7 @@ with c3:
     st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
-st.subheader("Zone and client-type performance")
+st.markdown("## Zone and client-type performance")
 summary = (
     filtered.groupby(["Zone", "ClientType"], as_index=False)
     .agg(
