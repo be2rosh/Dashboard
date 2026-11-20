@@ -1,6 +1,6 @@
 # Mamaearth Tertiary Sales & Inventory Dashboard
 
-A Streamlit + Plotly executive dashboard using the sanitized business data extract in `database.csv`.
+A Streamlit + Plotly executive dashboard using the sanitized, compressed business data extract in `database.csv.gz.b64`.
 
 ## Dashboard features
 
@@ -11,7 +11,7 @@ A Streamlit + Plotly executive dashboard using the sanitized business data extra
 - Secondary value comparison
 - Opening and closing value trends
 - Zone/client-type performance table
-- Filters for reporting period, zone, and client type
+- Filters for reporting period, month, zone, state, and client type
 - Filtered CSV export
 
 ## Run locally
@@ -30,12 +30,12 @@ Streamlit will print a local URL (typically http://localhost:8501) to open in yo
 
 ## Database
 
-- `database.csv` is the dashboard's data source and must remain in the same folder as `dashboard.py`.
-- The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, and client type. It contains 105 rows representing 13,663 source client-month records across April–October 2026.
+- `database.csv.gz.b64` is the dashboard's data source and must remain in the same folder as `dashboard.py`. The file contains a gzip-compressed CSV encoded as Base64; the app decodes it automatically at startup.
+- The repository copy is a **sanitized aggregate**, grouped by reporting month, zone, state, and client type. It contains 436 rows representing 13,663 source client-month records across April–October 2026.
 - Direct contact fields, staff names, phone numbers, and internal identifiers from the uploaded workbook are not included in the repository extract.
 - To refresh the dashboard, replace `database.csv` with a newly aggregated CSV that preserves these column names:
 
-  `Mothly, Zone, Client Type, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
+  `Mothly, Zone, State, Client Type, Records, NetTertiary, SalesQty, SecondaryValue, OpeningValue, ClosingValue, ReturnsValue`
 
 ## Data interpretation
 
